@@ -1,34 +1,38 @@
-const baudrates = document.getElementById("baudrates");
-const connectButton = document.getElementById("connectButton");
-const disconnectButton = document.getElementById("disconnectButton");
-const resetButton = document.getElementById("resetButton");
-const consoleStartButton = document.getElementById("consoleStartButton");
-const consoleStopButton = document.getElementById("consoleStopButton");
-const eraseButton = document.getElementById("eraseButton");
+const baudrates = document.getElementById("baudrates") as HTMLSelectElement;
+const connectButton = document.getElementById("connectButton") as HTMLButtonElement;
+const disconnectButton = document.getElementById("disconnectButton") as HTMLButtonElement;
+const resetButton = document.getElementById("resetButton") as HTMLButtonElement;
+const consoleStartButton = document.getElementById("consoleStartButton") as HTMLButtonElement;
+const consoleStopButton = document.getElementById("consoleStopButton") as HTMLButtonElement;
+const eraseButton = document.getElementById("eraseButton") as HTMLButtonElement;
+const addFileButton = document.getElementById("addFile") as HTMLButtonElement;
 const programButton = document.getElementById("programButton");
 const filesDiv = document.getElementById("files");
 const terminal = document.getElementById("terminal");
 const programDiv = document.getElementById("program");
 const consoleDiv = document.getElementById("console");
 const lblBaudrate = document.getElementById("lblBaudrate");
+const lblConsoleFor = document.getElementById("lblConsoleFor");
 const lblConnTo = document.getElementById("lblConnTo");
-const table = document.getElementById("fileTable");
+const table = document.getElementById("fileTable") as HTMLTableElement;
 const alertDiv = document.getElementById("alertDiv");
 
-// import { Transport } from './cp210x-webusb.js'
-import * as esptooljs from "./bundle.js";
-const ESPLoader = esptooljs.ESPLoader;
-const Transport = esptooljs.Transport;
+// This is a frontend example of Esptool-JS using local bundle file
+// To optimize use a CDN hosted version like
+// https://unpkg.com/esptool-js@0.2.0/bundle.js
+import { ESPLoader, Transport } from "../../../lib";
+
+declare var Terminal; // Terminal is imported in HTML script
+declare var CryptoJS; // CryptoJS is imported in HTML script
 
 let term = new Terminal({ cols: 120, rows: 40 });
 term.open(terminal);
 
 let device = null;
-let transport;
-let chip = null;
-let esploader;
+let transport: Transport;
+let chip: string = null;
+let esploader: ESPLoader;
 let file1 = null;
-let connected = false;
 
 disconnectButton.style.display = "none";
 eraseButton.style.display = "none";
@@ -71,13 +75,7 @@ connectButton.onclick = async () => {
   }
 
   try {
-    const loaderOptions = {
-      transport: transport,
-      baudrate: baudrates.value,
-      terminal: espLoaderTerminal
-    };
-    esploader = new ESPLoader(loaderOptions);
-    connected = true;
+    esploader = new ESPLoader(transport, parseInt(baudrates.value), espLoaderTerminal);
 
     chip = await esploader.main_fn();
 
@@ -123,7 +121,7 @@ eraseButton.onclick = async () => {
   }
 };
 
-addFile.onclick = () => {
+addFileButton.onclick = () => {
   var rowCount = table.rows.length;
   var row = table.insertRow(rowCount);
 
@@ -183,7 +181,6 @@ disconnectButton.onclick = async () => {
   if (transport) await transport.disconnect();
 
   term.clear();
-  connected = false;
   baudrates.style.display = "initial";
   connectButton.style.display = "initial";
   disconnectButton.style.display = "none";
@@ -278,34 +275,33 @@ programButton.onclick = async () => {
     const row = table.rows[index];
 
     const offSetObj = row.cells[0].childNodes[0];
-    const offset = parseInt(offSetObj.value);
+    const offset = parseInt(offSetObj.textContent);
 
     const fileObj = row.cells[1].childNodes[0];
     const progressBar = row.cells[2].childNodes[0];
 
-    progressBar.value = 0;
+    progressBar.textContent = "0";
     progressBars.push(progressBar);
 
     row.cells[2].style.display = "initial";
     row.cells[3].style.display = "none";
 
-    fileArray.push({ data: fileObj.data, address: offset });
+    fileArray.push({ data: fileObj.textContent, address: offset });
   }
 
   try {
-    const flashOptions = {
+    await esploader.write_flash(
       fileArray,
-      flashSize: "keep",
-      flashMode: undefined,
-      flashFreq: undefined,
-      eraseAll: false,
-      compress: true,
-      reportProgress: (fileIndex, written, total) => {
+      "keep",
+      undefined,
+      undefined,
+      false,
+      true,
+      (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
       },
-      calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
-    };
-    await esploader.write_flash(flashOptions);
+      (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
+    );
   } catch (e) {
     console.error(e);
     term.writeln(`Error: ${e.message}`);
@@ -318,4 +314,4 @@ programButton.onclick = async () => {
   }
 };
 
-addFile.onclick();
+addFileButton.onclick(this);
