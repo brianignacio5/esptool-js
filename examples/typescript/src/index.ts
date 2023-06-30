@@ -20,7 +20,7 @@ const alertDiv = document.getElementById("alertDiv");
 // This is a frontend example of Esptool-JS using local bundle file
 // To optimize use a CDN hosted version like
 // https://unpkg.com/esptool-js@0.2.0/bundle.js
-import { ESPLoader, Transport } from "../../../lib";
+import { ESPLoader, FlashOptions, LoaderOptions, Transport } from "../../../lib";
 
 declare let Terminal; // Terminal is imported in HTML script
 declare let CryptoJS; // CryptoJS is imported in HTML script
@@ -45,12 +45,6 @@ function handleFileSelect(evt) {
 
   const reader = new FileReader();
 
-  // reader.onload = (function (theFile) {
-  //   return function (e) {
-  //     file1 = e.target.result;
-  //     evt.target.data = file1;
-  //   };
-  // })(file);
   reader.onload = (ev: ProgressEvent<FileReader>) => {
     evt.target.data = ev.target.result;
   };
@@ -77,7 +71,12 @@ connectButton.onclick = async () => {
   }
 
   try {
-    esploader = new ESPLoader(transport, parseInt(baudrates.value), espLoaderTerminal);
+    const flashOptions = {
+      transport,
+      baudrate: parseInt(baudrates.value),
+      terminal: espLoaderTerminal,
+    } as LoaderOptions;
+    esploader = new ESPLoader(flashOptions);
 
     chip = await esploader.main_fn();
 
@@ -292,18 +291,17 @@ programButton.onclick = async () => {
   }
 
   try {
-    await esploader.write_flash(
-      fileArray,
-      "keep",
-      undefined,
-      undefined,
-      false,
-      true,
-      (fileIndex, written, total) => {
+    const flashOptions: FlashOptions = {
+      fileArray: fileArray,
+      flashSize: "keep",
+      eraseAll: false,
+      compress: true,
+      reportProgress: (fileIndex, written, total) => {
         progressBars[fileIndex].value = (written / total) * 100;
       },
-      (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image)),
-    );
+      calculateMD5Hash: (image) => CryptoJS.MD5(CryptoJS.enc.Latin1.parse(image))
+    } as FlashOptions;
+    await esploader.write_flash(flashOptions);
   } catch (e) {
     console.error(e);
     term.writeln(`Error: ${e.message}`);
