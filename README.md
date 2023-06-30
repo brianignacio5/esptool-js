@@ -1,111 +1,66 @@
 # Javascript implementation of esptool
 
-This repository contains a Javascript implementation of [esptool](https://github.com/espressif/esptool), a serial flasher utility for Espressif chips. Unlike the Python-based esptool, `esptool-js` doesn't implement generation of binary images out of ELF files, and doesn't include companion tools similar to [espefuse.py](https://github.com/espressif/esptool/wiki/espefuse) and [espsecure.py](https://github.com/espressif/esptool/wiki/espsecure).
+This repository contains a Javascript implementation of [esptool](https://github.com/espressif/esptool), a serial flasher utility for Espressif chips. `esptool-js` is based on [Web Serial API](https://wicg.github.io/serial/) and works in Google Chrome and Microsoft Edge [version 89 or later](https://developer.mozilla.org/en-US/docs/Web/API/Serial#browser_compatibility) browsers.
 
-`esptool-js` is based on [Web Serial API](https://wicg.github.io/serial/) and works in Google Chrome and Microsoft Edge, [version 89 or later](https://developer.mozilla.org/en-US/docs/Web/API/Serial#browser_compatibility).
-
+**NOTE:** Unlike the Python-based esptool, `esptool-js` doesn't implement generation of binary images out of ELF files, and doesn't include companion tools similar to [espefuse.py](https://github.com/espressif/esptool/wiki/espefuse) and [espsecure.py](https://github.com/espressif/esptool/wiki/espsecure).
 
 ## Usage
 
-CDN
+**CDN**
 
 `https://unpkg.com/esptool-js/lib/index.js?module`
 
-NPM
+**NPM**
 
 `npm install --save esptool-js`
 
-Yarn
+**Yarn**
 
 `yarn add --save esptool-js`
 
-Example typescript code:
+Check an example project [here](./examples/typescript).
 
-```ts
-import { ESPLoader, Transport } from "esptool-js";
-
-const device = await navigator.serial.requestPort();
-const transport = new Transport(device);
-const baudRateInteger = 115200;
-
-const esploader: ESPLoader = new ESPLoader(transport, baudRateInteger);
-
-chip = await esploader.main_fn(); // Start connection with serial device, return device information string.
-
-const binaryFilesArray: {data: string; address: string;}[] = [
-  {data: "file1DataHere", address: "0x1000"}
-];
-const flashSize = "keep";
-const flashMode = "keep";
-const flashFreq = "keep";
-const eraseAll = false;
-const compress = true;
-
-// A function that will be executed on each file flash progress update
-const reportProgress: (fileIndex: number, written: number, total: number) => void;
-
-// A function used to do hash data verification where image is the binaryFilesArray[i].data
-const calculateMD5Hash: (image: string) => string;
-
-await esploader.write_flash(
-  binaryFilesArray,
-  flashSize,
-  flashMode,
-  flashFreq,
-  eraseAll,
-  compress,
-  reportProgress,
-  calculateMD5Hash);
-
-// Use the transport read write method for console logging.
-let val = await transport.rawRead();
-
-// Disconnect serial device with
-await transport.disconnect();
-
-```
-
-## Define port filters for device
+## Define port filters for device using WebSerial
 
 ```js
-const portFilters : { usbVendorId?: number | undefined; usbProductId?: number | undefined;}[] = [];
+const portFilters: { usbVendorId?: number | undefined, usbProductId?: number | undefined }[] = [];
 const device = await navigator.serial.requestPort({ filters: portFilters });
 ```
 
 ## Inject a Terminal to use with esptool-js
 
 ```js
-// You can use any JavaScript compatible terminal by wrapping a helper object like this:
+// You can use any JavaScript compatible terminal by wrapping it in a helper object like this:
 let espLoaderTerminal = {
   clean() {
-    // Implement the clean function for your terminal here.
+    // Implement the clean function call for your terminal here.
   },
   writeLine(data) {
-    // Implement the writeLine function for your terminal here.
+    // Implement the writeLine function call for your terminal here.
   },
   write(data) {
-    // Implement the write function for your terminal here.
+    // Implement the write function call for your terminal here.
   },
 };
 ```
+
+You can pass this terminal object to `ESPLoader` constructor as shown in the [examples projects](./examples/).
 
 ## Live demo
 
 Visit https://espressif.github.io/esptool-js/ to see this tool in action.
 
-
-
 ## Testing it locally
 
-```
+```sh
 npm install
 npm run build
 cd examples/typescript
 npm install
-npm run dev
+npm run dev # Run local sever with example code
 ```
 
-Then open http://localhost:8008 in Chrome or Edge. The `npm run build` step builds the `lib` used in the example `examples/typescript/index.html`.
+Then open `http://localhost:1234` in a Chrome browser. The `npm run build` step builds the `lib` used in the example `examples/typescript/index.html`. Update this reference as described in [Usage](#usage) section.
 
 ## License
 
