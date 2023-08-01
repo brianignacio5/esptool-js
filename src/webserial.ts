@@ -1,3 +1,10 @@
+/**
+ * Wrapper class around Webserial API to communicate with the serial device.
+ * 
+ * @param {SerialPort} device - Requested device prompted by the browser.
+ *
+ * const port = await navigator.serial.requestPort();
+ */
 class Transport {
   public slip_reader_enabled = false;
   public left_over = new Uint8Array(0);
@@ -5,18 +12,31 @@ class Transport {
 
   constructor(public device: SerialPort) {}
 
-  get_info() {
+  /**
+   * Request the serial device vendor ID and Product ID as string.
+   * @returns {string} Return the device VendorID and ProductID from SerialPortInfo as formatted string.
+   */
+  getInfo() {
     const info = this.device.getInfo();
     return info.usbVendorId && info.usbProductId
       ? `WebSerial VendorID 0x${info.usbVendorId.toString(16)} ProductID 0x${info.usbProductId.toString(16)}`
       : "";
   }
 
-  get_pid() {
+  /**
+   * Request the serial device product id from SerialPortInfo.
+   * @returns {string} Return the product ID.
+   */
+  getPid() {
     return this.device.getInfo().usbProductId;
   }
 
-  slip_writer(data: Uint8Array) {
+  /**
+   * Format data packet using the Serial Line Internet Protocol (SLIP).
+   * @param {Uint8Array} data Binary unsigned 8 bit array data to format.
+   * @returns {Uint8Array} Formatted unsigned 8 bit data array.
+   */
+  slipWriter(data: Uint8Array) {
     let count_esc = 0;
     let i = 0,
       j = 0;
@@ -47,8 +67,12 @@ class Transport {
     return out_data;
   }
 
+  /**
+   * Write binary data to device using the WebSerial device writable stream.
+   * @param data 8 bit unsigned data array to write to device.
+   */
   async write(data: Uint8Array) {
-    const out_data = this.slip_writer(data);
+    const out_data = this.slipWriter(data);
 
     if (this.device.writable) {
       const writer = this.device.writable.getWriter();
@@ -57,6 +81,12 @@ class Transport {
     }
   }
 
+  /**
+   * Concatenate buffer2 to buffer1 and return the resulting ArrayBuffer.
+   * @param {ArrayBuffer} buffer1 First buffer to concatenate.
+   * @param {ArrayBuffer} buffer2 Second buffer to concatenate.
+   * @returns {ArrayBuffer} Result Array buffer.
+   */
   _appendBuffer(buffer1: ArrayBuffer, buffer2: ArrayBuffer) {
     const tmp = new Uint8Array(buffer1.byteLength + buffer2.byteLength);
     tmp.set(new Uint8Array(buffer1), 0);
@@ -64,9 +94,13 @@ class Transport {
     return tmp.buffer;
   }
 
-  /* this function expects complete packet (hence reader reads for atleast 8 bytes. This function is
-   * stateless and returns the first wellformed packet only after replacing escape sequence */
-  slip_reader(data: Uint8Array) {
+  /**
+   * Take a data array and return the first well formed packet after
+   * replacing the escape sequence. Reads at least 8 bytes.
+   * @param data Unsigned 8 bit array from the device read stream.
+   * @returns {Uint8Array}
+   */
+  slipReader(data: Uint8Array) {
     let i = 0;
     let data_start = 0,
       data_end = 0;
@@ -110,12 +144,18 @@ class Transport {
     return packet;
   }
 
-  async read(timeout = 0, min_data = 12) {
+  /**
+   * Read from serial device using the device ReadableStream.
+   * @param timeout Read timeout number
+   * @param minData Minimum packet array length
+   * @returns {Uint8Array} 8 bit unsigned data array read from device.
+   */
+  async read(timeout = 0, minData = 12) {
     let t;
     let packet = this.left_over;
     this.left_over = new Uint8Array(0);
     if (this.slip_reader_enabled) {
-      const val_final = this.slip_reader(packet);
+      const val_final = this.slipReader(packet);
       if (val_final.length > 0) {
         return val_final;
       }
@@ -141,7 +181,7 @@ class Transport {
         }
         const p = new Uint8Array(this._appendBuffer(packet.buffer, value.buffer));
         packet = p;
-      } while (packet.length < min_data);
+      } while (packet.length < minData);
     } finally {
       if (timeout > 0) {
         clearTimeout(t);
@@ -149,11 +189,16 @@ class Transport {
       reader.releaseLock();
     }
     if (this.slip_reader_enabled) {
-      return this.slip_reader(packet);
+      return this.slipReader(packet);
     }
     return packet;
   }
 
+  /**
+   * Read from serial device without slip formatting.
+   * @param timeout Read timeout in milliseconds (ms)
+   * @returns {Uint8Array} 8 bit unsigned data array read from device.
+   */
   async rawRead(timeout = 0) {
     if (this.left_over.length != 0) {
       const p = this.left_over;
@@ -185,6 +230,11 @@ class Transport {
   }
 
   _DTR_state = false;
+  /**
+   * Send the RequestToSend (RTS) signal to given state
+   * # True for EN=LOW, chip in reset and False EN=HIGH, chip out of reset
+   * @param {boolean} state Boolean state to set the signal
+   */
   async setRTS(state: boolean) {
     await this.device.setSignals({ requestToSend: state });
     // # Work-around for adapters on Windows using the usbser.sys driver:
@@ -194,11 +244,20 @@ class Transport {
     await this.setDTR(this._DTR_state);
   }
 
+  /**
+   * Send the dataTerminalReady (DTS) signal to given state
+   * # True for IO0=LOW, chip in reset and False IO0=HIGH
+   * @param {boolean} state Boolean state to set the signal
+   */
   async setDTR(state: boolean) {
     this._DTR_state = state;
     await this.device.setSignals({ dataTerminalReady: state });
   }
 
+  /**
+   * Connect to serial device using the Webserial open method.
+   * @param {number} baud Number baud rate for serial connection.
+   */
   async connect(baud = 115200) {
     await this.device.open({ baudRate: baud });
     this.baudrate = baud;
@@ -209,6 +268,10 @@ class Transport {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /**
+   * Wait for a given timeout ms for serial device unlock.
+   * @param {number} timeout Timeout time in milliseconds (ms) to sleep
+   */
   async waitForUnlock(timeout: number) {
     while (
       (this.device.readable && this.device.readable.locked) ||
@@ -218,6 +281,9 @@ class Transport {
     }
   }
 
+  /**
+   * Disconnect from serial device by running SerialPort.close() after streams unlock.
+   */
   async disconnect() {
     await this.waitForUnlock(400);
     await this.device.close();
