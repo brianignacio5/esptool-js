@@ -100,7 +100,7 @@ type CmdsArgsTypes = {
 
 /**
  * Validate a sequence string based on the following format:
- * 
+ *
  * Commands (e.g. R0) are defined by a code (R) and an argument (0).
  *
  * The commands are:
@@ -110,7 +110,7 @@ type CmdsArgsTypes = {
  * R: setRTS - 1=True / 0=False
  *
  * W: Wait (time delay) - positive integer number (miliseconds)
- * 
+ *
  * @param seqStr Sequence string to validate
  * @returns {boolean} Is the sequence string valid ?
  */
@@ -157,7 +157,7 @@ export function validateCustomResetStringSequence(seqStr: string): boolean {
  * W: Wait (time delay) - positive integer number (miliseconds)
  *
  * "D0|R1|W100|D1|R0|W50|D0" represents the classic reset strategy
- * 
+ *
  * @param {Transport} transport Transport class to perform serial communication.
  * @param {string} sequenceString Custom string sequence for reset strategy
  */
