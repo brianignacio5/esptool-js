@@ -221,6 +221,9 @@ export class ESPLoader {
    * Create a new ESPLoader to perform serial communication
    * such as read/write flash memory and registers using a LoaderOptions object.
    * @param {LoaderOptions} options - LoaderOptions object argument for ESPLoader.
+   * ```ts
+   * const myLoader = new ESPLoader({transport: Transport, baudrate: number, terminal?: IEspLoaderTerminal });
+   * ```
    */
   constructor(options: LoaderOptions) {
     this.IS_STUB = false;
@@ -570,9 +573,9 @@ export class ESPLoader {
 
   /**
    * Perform a connection to chip.
-   * @param mode - Reset mode to use. Example: 'default_reset' | 'no_reset'
-   * @param attempts - Number of connection attempts
-   * @param detecting - Detect the connected chip
+   * @param {string} mode - Reset mode to use. Example: 'default_reset' | 'no_reset'
+   * @param {number} attempts - Number of connection attempts
+   * @param {boolean} detecting - Detect the connected chip
    */
   async connect(mode = "default_reset", attempts = 7, detecting = false) {
     let i;
@@ -608,7 +611,7 @@ export class ESPLoader {
 
   /**
    * Connect and detect the existing chip.
-   * @param mode Reset mode to use for connection.
+   * @param {string} mode Reset mode to use for connection.
    */
   async detectChip(mode = "default_reset") {
     await this.connect(mode);
@@ -664,7 +667,7 @@ export class ESPLoader {
   /**
    * Get the checksum for given unsigned 8-bit array
    * @param {Uint8Array} data Unsigned 8-bit integer array
-   * @returns - Array checksum
+   * @returns {number} - Array checksum
    */
   checksum = function (data: Uint8Array) {
     let i;
@@ -678,8 +681,8 @@ export class ESPLoader {
 
   /**
    * Send a block of image to RAM
-   * @param buffer Unsigned 8-bit array
-   * @param seq Sequence number
+   * @param {Uint8Array} buffer Unsigned 8-bit array
+   * @param {number} seq Sequence number
    */
   async memBlock(buffer: Uint8Array, seq: number) {
     let pkt = this._appendArray(this._intToByteArray(buffer.length), this._intToByteArray(seq));
@@ -765,7 +768,7 @@ export class ESPLoader {
    * Start downloading compressed data to Flash (performs an erase)
    * @param {number} size Write size
    * @param {number} compsize Compressed size
-   * @param {number} offset
+   * @param {number} offset Offset for write
    * @returns {number} Returns number of blocks (size self.FLASH_WRITE_SIZE) to write.
    */
   async flashDeflBegin(size: number, compsize: number, offset: number) {
@@ -878,12 +881,12 @@ export class ESPLoader {
    *
    * After writing command byte, writes 'data' to MOSI and then
    * reads back 'read_bits' of reply on MISO. Result is a number.
-   * @param {number} spiflash_command
-   * @param {Uint8Array} data
-   * @param {number} read_bits
+   * @param {number} spiflashCommand Command to execute in SPI
+   * @param {Uint8Array} data Data to send
+   * @param {number} readBits Number of bits to read
    * @returns {number} Register SPI_W0_REG value
    */
-  async runSpiflashCommand(spiflash_command: number, data: Uint8Array, read_bits: number) {
+  async runSpiflashCommand(spiflashCommand: number, data: Uint8Array, readBits: number) {
     // SPI_USR register flags
     const SPI_USR_COMMAND = 1 << 31;
     const SPI_USR_MISO = 1 << 28;
@@ -923,7 +926,7 @@ export class ESPLoader {
 
     const SPI_CMD_USR = 1 << 18;
     const SPI_USR2_COMMAND_LEN_SHIFT = 28;
-    if (read_bits > 32) {
+    if (readBits > 32) {
       throw new ESPError("Reading more than 32 bits back from a SPI flash operation is unsupported");
     }
     if (data.length > 64) {
@@ -935,15 +938,15 @@ export class ESPLoader {
     const old_spi_usr2 = await this.readReg(SPI_USR2_REG);
     let flags = SPI_USR_COMMAND;
     let i;
-    if (read_bits > 0) {
+    if (readBits > 0) {
       flags |= SPI_USR_MISO;
     }
     if (data_bits > 0) {
       flags |= SPI_USR_MOSI;
     }
-    await set_data_lengths(data_bits, read_bits);
+    await set_data_lengths(data_bits, readBits);
     await this.write_reg(SPI_USR_REG, flags);
-    let val = (7 << SPI_USR2_COMMAND_LEN_SHIFT) | spiflash_command;
+    let val = (7 << SPI_USR2_COMMAND_LEN_SHIFT) | spiflashCommand;
     await this.write_reg(SPI_USR2_REG, val);
     if (data_bits == 0) {
       await this.write_reg(SPI_W0_REG, 0);
@@ -977,7 +980,7 @@ export class ESPLoader {
 
   /**
    * Read flash id by executing the SPIFLASH_RDID flash command.
-   * @returns Register SPI_W0_REG value
+   * @returns {Promise<number>} Register SPI_W0_REG value
    */
   async readFlashId() {
     const SPIFLASH_RDID = 0x9f;
@@ -1017,8 +1020,8 @@ export class ESPLoader {
 
   /**
    * Calculate the MD5 Checksum command
-   * @param addr Address number
-   * @param size Package size
+   * @param {number} addr Address number
+   * @param {number} size Package size
    * @returns {string} MD5 Checksum string
    */
   async flashMd5sum(addr: number, size: number): Promise<string> {
@@ -1137,22 +1140,22 @@ export class ESPLoader {
 
   /**
    * Get flash size bytes from flash size string.
-   * @param flash_size Flash Size string
+   * @param {string} flashSize Flash Size string
    * @returns {number} Flash size bytes
    */
-  flashSizeBytes = function (flash_size: string) {
+  flashSizeBytes = function (flashSize: string) {
     let flash_size_b = -1;
-    if (flash_size.indexOf("KB") !== -1) {
-      flash_size_b = parseInt(flash_size.slice(0, flash_size.indexOf("KB"))) * 1024;
-    } else if (flash_size.indexOf("MB") !== -1) {
-      flash_size_b = parseInt(flash_size.slice(0, flash_size.indexOf("MB"))) * 1024 * 1024;
+    if (flashSize.indexOf("KB") !== -1) {
+      flash_size_b = parseInt(flashSize.slice(0, flashSize.indexOf("KB"))) * 1024;
+    } else if (flashSize.indexOf("MB") !== -1) {
+      flash_size_b = parseInt(flashSize.slice(0, flashSize.indexOf("MB"))) * 1024 * 1024;
     }
     return flash_size_b;
   };
 
   /**
    * Parse a given flash size string to a number
-   * @param flsz Flash size to request
+   * @param {string} flsz Flash size to request
    * @returns {number} Flash size number
    */
   parseFlashSizeArg(flsz: string) {

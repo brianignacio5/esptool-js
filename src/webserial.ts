@@ -1,7 +1,8 @@
+/* global SerialPort */
+
 /**
  * Wrapper class around Webserial API to communicate with the serial device.
- *
- * @param {SerialPort} device - Requested device prompted by the browser.
+ * @param {typeof import("w3c-web-serial").SerialPort} device - Requested device prompted by the browser.
  *
  * const port = await navigator.serial.requestPort();
  */
@@ -69,7 +70,7 @@ class Transport {
 
   /**
    * Write binary data to device using the WebSerial device writable stream.
-   * @param data 8 bit unsigned data array to write to device.
+   * @param {Uint8Array} data 8 bit unsigned data array to write to device.
    */
   async write(data: Uint8Array) {
     const out_data = this.slipWriter(data);
@@ -98,7 +99,7 @@ class Transport {
    * Take a data array and return the first well formed packet after
    * replacing the escape sequence. Reads at least 8 bytes.
    * @param {Uint8Array} data Unsigned 8 bit array from the device read stream.
-   * @returns {Uint8Array}
+   * @returns {Uint8Array} Formatted packet using SLIP escape sequences.
    */
   slipReader(data: Uint8Array) {
     let i = 0;
@@ -196,7 +197,7 @@ class Transport {
 
   /**
    * Read from serial device without slip formatting.
-   * @param timeout Read timeout in milliseconds (ms)
+   * @param {number} timeout Read timeout in milliseconds (ms)
    * @returns {Uint8Array} 8 bit unsigned data array read from device.
    */
   async rawRead(timeout = 0) {
